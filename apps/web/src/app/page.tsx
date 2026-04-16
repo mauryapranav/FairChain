@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { TrackOrderBar } from '@/components/landing/TrackOrderBar';
 
 import { CircuitGrid } from '@/components/landing/CircuitGrid';
 import { HowItWorks } from '@/components/landing/HowItWorks';
@@ -42,8 +43,8 @@ export default function HomePage() {
             Blockchain-anchored supply chain contracts — with fairness built in.
           </p>
 
-          {/* CTA buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-4">
+            {/* CTA buttons */}
+          <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
             <Link href="/explore" id="cta-explore" className="btn-primary text-base px-8 py-3">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
@@ -61,6 +62,9 @@ export default function HomePage() {
               Verify a Product
             </Link>
           </div>
+
+          {/* Track Order */}
+          <TrackOrderBar />
         </div>
 
         {/* Scroll cue */}

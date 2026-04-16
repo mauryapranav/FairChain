@@ -104,15 +104,26 @@ export default function ContractDetailPage() {
       }
     });
 
+    // Contract rejected → update UI
+    socket.on('contract_rejected', (data: { contractId: string }) => {
+      if (data.contractId === id) {
+        toast.error('Contract was declined.');
+        void load();
+      }
+    });
+
     return () => {
       socket.emit('leave_room', id);
       socket.off('contract_accepted');
       socket.off('contract_locked');
+      socket.off('contract_rejected');
     };
   }, [token, id, load]);
 
   const isParticipant = contract?.participants.some(
-    p => p.walletAddress.toLowerCase() === (address ?? '').toLowerCase()
+    p =>
+      p.walletAddress.toLowerCase() === (address ?? '').toLowerCase() ||
+      p.userId === user?.id
   ) ?? false;
 
   const isCreator = contract?.createdBy === user?.id;
@@ -213,11 +224,21 @@ export default function ContractDetailPage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Creator: Pending vs Accepted */}
+              {/* Creator: Pending — show Negotiate */}
               {isCreator && contract.status === 'pending' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400">
-                  ⏳ Waiting for Acceptance
-                </span>
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400">
+                    ⏳ Awaiting acceptance
+                  </span>
+                  <button
+                    onClick={() => { setChatOpen(true); setUnread(0); }}
+                    className="btn-ghost text-sm"
+                    id="btn-negotiate"
+                    aria-label="Open chat to negotiate"
+                  >
+                    💬 Negotiate
+                  </button>
+                </>
               )}
               {isCreator && contract.status === 'accepted' && (
                 <button
@@ -231,14 +252,22 @@ export default function ContractDetailPage() {
                 </button>
               )}
 
-              {/* Participant: Pending (Needs Acceptance) */}
+              {/* Participant: Pending (Accept / Decline / Negotiate) */}
               {isParticipant && !isCreator && contract.status === 'pending' && (
                 <>
                   <button onClick={rejectContract} className="btn-ghost text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10">
                     ❌ Decline
                   </button>
+                  <button
+                    onClick={() => { setChatOpen(true); setUnread(0); }}
+                    className="btn-ghost text-sm"
+                    id="btn-negotiate-participant"
+                    aria-label="Negotiate terms via chat"
+                  >
+                    💬 Negotiate
+                  </button>
                   <button onClick={acceptContract} className="btn-primary text-sm bg-[#00E5A0] text-[#0A0F1E] hover:bg-[#00E5A0]/80">
-                    ✅ Accept Contract
+                    ✅ Accept
                   </button>
                 </>
               )}

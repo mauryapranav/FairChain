@@ -193,5 +193,14 @@ export const rejectContract = async (req: Request, res: Response): Promise<void>
   if (!isParticipant && contract.createdBy !== userId) { res.status(403).json({ error: 'Not authorized' }); return; }
 
   await ContractModel.updateOne({ contractId: contract.contractId }, { status: 'rejected' });
+
+  try {
+    getIO().to(contract.contractId).emit('contract_rejected', {
+      contractId: contract.contractId,
+      rejectedBy: userId,
+      status: 'rejected',
+    });
+  } catch { /* socket not critical */ }
+
   res.json({ success: true, status: 'rejected' });
 };

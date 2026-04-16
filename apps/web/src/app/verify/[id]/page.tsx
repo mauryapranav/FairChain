@@ -10,6 +10,7 @@ interface ContractParticipant {
   role: string;
   paymentSplit: number;
   userId?: string;
+  name?: string; // enriched from users API
 }
 
 interface ContractData {
@@ -42,6 +43,11 @@ interface PageResponse {
   escrow: EscrowData | null;
 }
 
+interface UserData {
+  name?: string;
+  walletAddress: string;
+}
+
 /* ── Metadata ───────────────────────────────────────────────────────── */
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -56,20 +62,40 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   } catch { return { title: 'Verify Product — FairChain' }; }
 }
 
+/* ── Helper ─────────────────────────────────────────────────────────── */
+
+async function fetchUserName(API: string, walletAddress: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(`${API}/api/users/${walletAddress.toLowerCase()}`, { cache: 'no-store' });
+    if (res.ok) {
+      const { data } = await res.json() as { data: UserData };
+      return data?.name;
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+function isMockHash(h?: string) {
+  return !h || h.startsWith('0xmock') || h === '0x' + '0'.repeat(64);
+}
+
+function isMockCid(c?: string) {
+  return !c || c.startsWith('bafybeimock') || c.startsWith('bafybeifile');
+}
+
 /* ── Page (Server Component) ────────────────────────────────────────── */
 
-const IPFS_GW = 'https://ipfs.io/ipfs';
+const IPFS_GW    = 'https://ipfs.io/ipfs';
 const POLYGONSCAN = 'https://amoy.polygonscan.com/tx';
 
 export default async function VerifyPage({ params }: { params: { id: string } }) {
   const API = process.env['API_URL'] ?? 'http://localhost:4000';
 
-  // Detect auth server-side — hide payment info for anonymous visitors
   const cookieStore = cookies();
   const isAuthenticated = !!cookieStore.get('fc_token')?.value;
 
   let contractData: ContractData | null = null;
-  let escrowData: EscrowData | null = null;
+  let escrowData:   EscrowData | null = null;
 
   try {
     const res = await fetch(`${API}/api/contracts/${params.id}`, { cache: 'no-store' });
@@ -78,7 +104,7 @@ export default async function VerifyPage({ params }: { params: { id: string } })
       contractData = json.data;
       escrowData   = json.escrow;
     }
-  } catch { /* network error — show not found */ }
+  } catch { /* network error */ }
 
   /* ── Not Found ─────────────────────────────────────────────────────── */
   if (!contractData) {
@@ -98,7 +124,16 @@ export default async function VerifyPage({ params }: { params: { id: string } })
     );
   }
 
+  /* ── Enrich participants with names from users API ─────────────────── */
+  const enrichedParticipants: ContractParticipant[] = await Promise.all(
+    contractData.participants.map(async p => ({
+      ...p,
+      name: await fetchUserName(API, p.walletAddress),
+    }))
+  );
+
   const isVerified = ['locked', 'completed'].includes(contractData.status);
+  const totalAmount = contractData.totalAmount ?? 0;
 
   return (
     <main className="min-h-screen pt-20 pb-16 px-4">
@@ -117,12 +152,12 @@ export default async function VerifyPage({ params }: { params: { id: string } })
           </div>
           <div>
             <h1 className={`text-xl font-extrabold ${isVerified ? 'text-[#00E5A0]' : 'text-amber-300'}`}>
-              {isVerified ? 'Verified on Blockchain' : 'Pending Verification'}
+              {isVerified ? 'Verified on Blockchain' : 'Contract In Progress'}
             </h1>
             <p className="text-sm text-slate-400 mt-0.5">
               {isVerified
                 ? `Registered on Polygon Amoy · ${contractData.lockedAt ? new Date(contractData.lockedAt).toLocaleDateString('en-IN', { dateStyle: 'long' }) : 'Recently'}`
-                : 'Contract is pending finalization by the creator'}
+                : `Status: ${contractData.status.charAt(0).toUpperCase() + contractData.status.slice(1)} — not yet locked on-chain`}
             </p>
           </div>
         </div>
@@ -131,8 +166,8 @@ export default async function VerifyPage({ params }: { params: { id: string } })
         <section className="glass p-6 space-y-4">
           <h2 className="text-base font-semibold text-white">Product Identity</h2>
 
-          {contractData.imageCid && (
-            /* eslint-disable-next-line @next/next/no-img-element */
+          {contractData.imageCid && !isMockCid(contractData.imageCid) && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`${IPFS_GW}/${contractData.imageCid}`}
               alt={contractData.productName}
@@ -170,49 +205,78 @@ export default async function VerifyPage({ params }: { params: { id: string } })
         {/* ── Supply Chain Journey ──────────────────────────────────── */}
         <section className="glass p-6 space-y-4">
           <h2 className="text-base font-semibold text-white">Supply Chain Journey</h2>
-          <p className="text-xs text-slate-500">Tap any participant to see their full details</p>
-          <SupplyChainFlow participants={contractData.participants} />
+          <p className="text-xs text-slate-500">The verified participants in this product&apos;s journey</p>
+          <SupplyChainFlow participants={enrichedParticipants} totalAmount={totalAmount} />
         </section>
 
-        {/* ── Payment Transparency ──────────────────────────────────────── */}
-        {isAuthenticated ? (
-          <section className="glass p-6 space-y-4">
-            <h2 className="text-base font-semibold text-white">Payment Transparency</h2>
-            {contractData.totalAmount && (
-              <p className="text-2xl font-bold text-gradient">
-                ₹{contractData.totalAmount.toLocaleString('en-IN')}
-                <span className="text-sm text-slate-500 font-normal ml-2">total contract value</span>
-              </p>
-            )}
-            <PaymentChart
-              participants={contractData.participants}
-              totalAmount={contractData.totalAmount}
-            />
-            <div className="space-y-2 pt-2 border-t border-white/[0.05]">
-              {contractData.participants.map((p, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">{p.role}</span>
-                  <div className="text-right">
-                    <span className="text-white font-medium">{p.paymentSplit}%</span>
-                    {contractData.totalAmount && (
-                      <span className="text-[#00E5A0] text-xs ml-2">
-                        ₹{Math.round(contractData.totalAmount * p.paymentSplit / 100).toLocaleString('en-IN')}
+        {/* ── Payment Transparency (visible to ALL — key FairChain feature) */}
+        <section className="glass p-6 space-y-4">
+          <h2 className="text-base font-semibold text-white flex items-center gap-2">
+            💸 Where Your Money Goes
+          </h2>
+          <p className="text-xs text-slate-500">
+            FairChain guarantees full payment transparency. Here&apos;s exactly how the payment is distributed across the supply chain.
+          </p>
+
+          {totalAmount > 0 && (
+            <div className="flex items-baseline gap-2 py-2">
+              <span className="text-3xl font-extrabold text-white">₹{totalAmount.toLocaleString('en-IN')}</span>
+              <span className="text-sm text-slate-500">total contract value</span>
+            </div>
+          )}
+
+          {/* Visual bars */}
+          <div className="space-y-3">
+            {enrichedParticipants.map((p, i) => {
+              const amount = totalAmount ? Math.round(totalAmount * p.paymentSplit / 100) : 0;
+              const roleColors: Record<string, string> = {
+                Artisan:   'bg-[#00E5A0]',
+                Middleman: 'bg-sky-400',
+                Seller:    'bg-amber-400',
+              };
+              const bar = roleColors[p.role] ?? 'bg-slate-400';
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white font-medium">
+                        {p.name ?? `${p.role} (${p.walletAddress.slice(0, 6)}…${p.walletAddress.slice(-4)})`}
                       </span>
-                    )}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-slate-400">
+                        {p.role}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-white">{p.paymentSplit}%</span>
+                      {amount > 0 && (
+                        <span className="text-xs text-[#00E5A0] ml-2">₹{amount.toLocaleString('en-IN')}</span>
+                      )}
+                    </div>
                   </div>
+                  <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${bar} rounded-full transition-all duration-700`}
+                      style={{ width: `${p.paymentSplit}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-600 font-mono">{p.walletAddress}</p>
                 </div>
-              ))}
-            </div>
-          </section>
-        ) : (
-          <section className="glass p-6 flex items-center gap-4 border border-white/[0.06]">
-            <div className="w-10 h-10 rounded-full bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-xl shrink-0">🔒</div>
-            <div>
-              <p className="text-sm font-semibold text-white">Payment details are private</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Connect your wallet to view payment splits and contract amounts.
-              </p>
-            </div>
+              );
+            })}
+          </div>
+
+          {!isAuthenticated && (
+            <p className="text-[11px] text-slate-600 border-t border-white/[0.05] pt-3 mt-2">
+              🔒 Connect your wallet to see additional payment history and escrow status.
+            </p>
+          )}
+        </section>
+
+        {/* ── PaymentChart (visual pie — authenticated only) */}
+        {isAuthenticated && totalAmount > 0 && (
+          <section className="glass p-6 space-y-4">
+            <h2 className="text-base font-semibold text-white">Payment Chart</h2>
+            <PaymentChart participants={enrichedParticipants} totalAmount={totalAmount} />
           </section>
         )}
 
@@ -221,22 +285,27 @@ export default async function VerifyPage({ params }: { params: { id: string } })
           <section className="glass p-6 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-white flex items-center gap-2"><span>⛓</span> Blockchain Proof</h2>
-              {contractData.ipfsCid && (
+              {contractData.ipfsCid && !isMockCid(contractData.ipfsCid) && (
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20">
-                  Stored on Filecoin
+                  Stored on IPFS
+                </span>
+              )}
+              {contractData.ipfsCid && isMockCid(contractData.ipfsCid) && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">
+                  ⚠ Dev / Mock
                 </span>
               )}
             </div>
 
             <div className="space-y-2 text-sm">
               <ProofRow label="Contract ID" value={contractData.contractId.slice(0, 16) + '…'} />
-              {contractData.txHash && (
+              {contractData.txHash && !isMockHash(contractData.txHash) && (
                 <ProofRow label="Payment Tx" value="" href={`${POLYGONSCAN}/${contractData.txHash}`} linkText={`${contractData.txHash.slice(0, 10)}… ↗`} />
               )}
-              {contractData.ipfsCid && (
+              {contractData.ipfsCid && !isMockCid(contractData.ipfsCid) && (
                 <ProofRow label="IPFS Metadata" value="" href={`${IPFS_GW}/${contractData.ipfsCid}`} linkText={`${contractData.ipfsCid.slice(0, 10)}… ↗`} />
               )}
-              {contractData.proofTxHash && (
+              {contractData.proofTxHash && !isMockHash(contractData.proofTxHash) && (
                 <ProofRow label="Proof Registry" value="" href={`${POLYGONSCAN}/${contractData.proofTxHash}`} linkText={`${contractData.proofTxHash.slice(0, 10)}… ↗`} />
               )}
               {contractData.lockedAt && (
@@ -247,12 +316,12 @@ export default async function VerifyPage({ params }: { params: { id: string } })
         )}
 
         {/* ── Escrow Status ──────────────────────────────────────────── */}
-        {escrowData && (
+        {escrowData && isAuthenticated && (
           <section className="glass p-6 space-y-3">
             <h2 className="text-base font-semibold text-white">Escrow Status</h2>
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-400">Total Amount</span>
-              <span className="text-white font-semibold">₹{(escrowData.totalAmount / 100).toLocaleString('en-IN')}</span>
+              <span className="text-white font-semibold">₹{escrowData.totalAmount.toLocaleString('en-IN')}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-400">Status</span>
@@ -270,7 +339,7 @@ export default async function VerifyPage({ params }: { params: { id: string } })
                       </span>
                       {m.description}
                     </span>
-                    <span className="text-white font-medium">₹{(m.amount / 100).toLocaleString('en-IN')}</span>
+                    <span className="text-white font-medium">₹{m.amount.toLocaleString('en-IN')}</span>
                   </div>
                 ))}
               </div>

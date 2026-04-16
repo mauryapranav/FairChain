@@ -6,10 +6,12 @@ interface Participant {
   name?: string;
   walletAddress: string;
   role: string;
+  paymentSplit?: number;
 }
 
 interface Props {
   participants: Participant[];
+  totalAmount?: number;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -28,7 +30,7 @@ function shortenAddr(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export function SupplyChainFlow({ participants }: Props) {
+export function SupplyChainFlow({ participants, totalAmount = 0 }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
 
   if (!participants.length) return null;
@@ -57,6 +59,14 @@ export function SupplyChainFlow({ participants }: Props) {
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider">{p.role}</p>
                     <p className="text-[11px] opacity-80 mt-0.5">{p.name ?? shortenAddr(p.walletAddress)}</p>
+                    {p.paymentSplit != null && (
+                      <p className="text-[11px] font-semibold mt-1 opacity-90">
+                        {p.paymentSplit}%
+                        {totalAmount > 0 && (
+                          <span className="ml-1 opacity-70">· ₹{Math.round(totalAmount * p.paymentSplit / 100).toLocaleString('en-IN')}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </button>
 
