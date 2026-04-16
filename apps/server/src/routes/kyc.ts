@@ -1,9 +1,9 @@
-import { Router, type IRouter } from 'express';
-import { initiateKyc, kycCallback, getKycStatus } from '../controllers/kycController';
-import { verifyToken } from '../middleware/auth';
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth';
+import { getKycStatus, initiateKyc, kycCallback } from '../controllers/kycController';
 
-export const kycRouter: IRouter = Router();
+export const kycRouter = Router();
 
-kycRouter.get('/status',    verifyToken, getKycStatus as never);
-kycRouter.post('/initiate', verifyToken, initiateKyc as never);
-kycRouter.post('/callback', verifyToken, kycCallback as never);
+kycRouter.get('/status',    requireAuth, getKycStatus);
+kycRouter.post('/initiate', requireAuth, initiateKyc);
+kycRouter.post('/callback', kycCallback);   // webhook from KYC provider (no auth)

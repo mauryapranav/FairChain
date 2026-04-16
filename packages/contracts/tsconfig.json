@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "rootDir": "./",
+    "outDir": "./dist",
+    "resolveJsonModule": true,
+    "strict": true
+  },
+  "include": ["./hardhat.config.ts", "./scripts", "./typechain-types"],
+  "exclude": ["node_modules"]
+}

@@ -1,12 +1,17 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import type { Config } from 'wagmi';
+import { createConfig, http } from 'wagmi';
 import { polygonAmoy } from 'wagmi/chains';
+import { metaMask } from 'wagmi/connectors';
 
-const WC_PROJECT_ID = process.env['NEXT_PUBLIC_WC_PROJECT_ID'] ?? 'fallback-dev-id';
-
-export const wagmiConfig: Config = getDefaultConfig({
-  appName: 'FairChain',
-  projectId: WC_PROJECT_ID,
+/**
+ * MetaMask-only config on Polygon Amoy testnet.
+ * Two wallets on two browsers both work independently — each browser
+ * has its own MetaMask session so there is no conflict.
+ */
+export const wagmiConfig = createConfig({
   chains: [polygonAmoy],
-  ssr: true, // Required for Next.js App Router
+  connectors: [metaMask()],
+  transports: {
+    [polygonAmoy.id]: http(),
+  },
+  ssr: true,
 });

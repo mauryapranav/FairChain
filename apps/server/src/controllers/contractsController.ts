@@ -19,39 +19,33 @@ export const listContracts = async (req: Request, res: Response): Promise<void> 
   if (status)    filter['status']    = status;
   if (createdBy) filter['createdBy'] = createdBy;
 
-  const contracts = await ContractModel.find(filter)
-    .sort({ createdAt: -1 })
-    .skip(Number(skip))
-    .limit(Math.min(Number(limit), 50));
+  const all = await ContractModel.find(filter);
+  const total = all.length;
+  const data = all
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(Number(skip), Number(skip) + Math.min(Number(limit), 50));
 
-  const total = await ContractModel.countDocuments(filter);
-  res.json({ data: contracts.map(c => c.toJSON()), total });
+  res.json({ data, total });
 };
 
-// ── GET /api/contracts/:id ───────────────────────────────────────────────────
+// ── GET /api/contracts/:id ────────────────────────────────────────────────────
 
 export const getContract = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  // Try contractId (UUID) first, then MongoDB _id
   const contract = await ContractModel.findOne({ contractId: id })
-    ?? await ContractModel.findById(id).catch(() => null);
+    ?? await ContractModel.findById(id ?? '');
 
   if (!contract) { res.status(404).json({ error: 'Contract not found' }); return; }
 
-  // Attach live escrow + dispute status
   const [escrow, dispute] = await Promise.all([
     EscrowModel.findOne({ contractId: contract.contractId }),
     DisputeModel.findOne({ contractId: contract.contractId }),
   ]);
 
-  res.json({
-    data:    contract.toJSON(),
-    escrow:  escrow  ? escrow.toJSON()  : null,
-    dispute: dispute ? dispute.toJSON() : null,
-  });
+  res.json({ data: contract, escrow: escrow ?? null, dispute: dispute ?? null });
 };
 
-// ── POST /api/contracts ──────────────────────────────────────────────────────
+// ── POST /api/contracts ───────────────────────────────────────────────────────
 
 export const createContract = async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.sub;
@@ -63,9 +57,9 @@ export const createContract = async (req: Request, res: Response): Promise<void>
     totalAmount, imageCid,
   } = req.body as {
     productName: string; description: string; category: string; terms: string;
-    participants: Array<{userId: string; walletAddress: string; role: string; paymentSplit: number}>;
+    participants: Array<{ userId: string; walletAddress: string; role: string; paymentSplit: number }>;
     milestonesEnabled?: boolean;
-    milestones?: Array<{index: number; description: string; amount: number}>;
+    milestones?: Array<{ index: number; description: string; amount: number }>;
     totalAmount?: number;
     imageCid?: string;
   };
@@ -76,7 +70,6 @@ export const createContract = async (req: Request, res: Response): Promise<void>
   if (!participants?.length) {
     res.status(400).json({ error: 'At least one participant is required' }); return;
   }
-
   const splitTotal = participants.reduce((s, p) => s + p.paymentSplit, 0);
   if (Math.abs(splitTotal - 100) > 0.01) {
     res.status(400).json({ error: `Payment splits must total 100% (got ${splitTotal}%)` }); return;
@@ -97,23 +90,31 @@ export const createContract = async (req: Request, res: Response): Promise<void>
     createdBy:         userId,
   });
 
-  res.status(201).json({ data: contract.toJSON() });
+  if (totalAmount && totalAmount > 0) {
+    await EscrowModel.create({
+      contractId: contract.contractId,
+      status: 'unfunded',
+      totalAmount,
+      milestones: milestonesEnabled && milestones?.length ? milestones : [{ index: 0, description: 'Final Payment', amount: totalAmount }],
+    });
+  }
+
+  res.status(201).json({ data: contract });
 };
 
-// ── PATCH /api/contracts/:id/lock ────────────────────────────────────────────
+// ── PATCH /api/contracts/:id/lock ─────────────────────────────────────────────
 
 export const lockContract = async (req: Request, res: Response): Promise<void> => {
   const userId = req.user?.sub;
   if (!userId) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
-  const contract = await ContractModel.findOne({ contractId: req.params['id'] })
-    ?? await ContractModel.findById(req.params['id']).catch(() => null);
+  const contract = await ContractModel.findOne({ contractId: req.params['id'] ?? '' })
+    ?? await ContractModel.findById(req.params['id'] ?? '');
 
   if (!contract) { res.status(404).json({ error: 'Contract not found' }); return; }
   if (contract.createdBy !== userId) { res.status(403).json({ error: 'Only the creator can lock' }); return; }
   if (contract.status === 'locked') { res.status(409).json({ error: 'Already locked' }); return; }
 
-  // Build metadata for IPFS
   const metadata = {
     contractId:   contract.contractId,
     productName:  contract.productName,
@@ -130,10 +131,7 @@ export const lockContract = async (req: Request, res: Response): Promise<void> =
     imageCid:  contract.imageCid ?? null,
   };
 
-  // Upload to IPFS
   const cid = await uploadJSON(metadata, `fairchain-contract-${contract.contractId}`);
-
-  // Register proof on-chain
   const proofTxHash = await registerProofOnChain(
     contract.contractId,
     cid,
@@ -144,14 +142,9 @@ export const lockContract = async (req: Request, res: Response): Promise<void> =
   contract.ipfsCid     = cid;
   contract.proofTxHash = proofTxHash;
   contract.lockedAt    = new Date();
-  await contract.save();
+  contract.updatedAt   = new Date();
 
-  try { getIO().to(contract.contractId).emit('contract_locked', { contractId: contract.contractId, ipfsCid: cid, proofTxHash }); } catch {}
+  try { getIO().to(contract.contractId).emit('contract_locked', { contractId: contract.contractId, ipfsCid: cid, proofTxHash }); } catch { /* ok */ }
 
-  res.json({
-    data: contract.toJSON(),
-    ipfsCid:      cid,
-    ipfsUrl:      gatewayUrl(cid),
-    proofTxHash,
-  });
+  res.json({ data: contract, ipfsCid: cid, ipfsUrl: gatewayUrl(cid), proofTxHash });
 };

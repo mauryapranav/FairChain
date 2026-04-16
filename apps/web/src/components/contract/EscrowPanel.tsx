@@ -30,8 +30,8 @@ const STATUS_LABELS: Record<EscrowData['status'], { label: string; color: string
 
 const API = process.env['NEXT_PUBLIC_API_URL'] ?? '';
 
-export function EscrowPanel({ contractId, contractMilestones, totalAmount, onEscrowUpdate }: Props) {
-  const { address, isConnected } = useAccount();
+export function EscrowPanel({ contractId, totalAmount, onEscrowUpdate }: Props) {
+  const { isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const [escrow, setEscrow] = useState<EscrowData | null>(null);
   const [loading, setLoading] = useState(false);

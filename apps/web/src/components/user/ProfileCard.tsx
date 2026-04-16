@@ -23,9 +23,10 @@ function shortenAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function ReputationStars({ score }: { score: number }) {
+function ReputationStars({ score = 0 }: { score?: number }) {
+  const safeScore = score ?? 0;
   return (
-    <div className="flex items-center gap-0.5" aria-label={`Reputation: ${score} out of 5`}>
+    <div className="flex items-center gap-0.5" aria-label={`Reputation: ${safeScore} out of 5`}>
       {Array.from({ length: 5 }).map((_, i) => (
         <svg
           key={i}
@@ -33,16 +34,16 @@ function ReputationStars({ score }: { score: number }) {
           width="14"
           height="14"
           viewBox="0 0 24 24"
-          fill={i < Math.round(score) ? 'currentColor' : 'none'}
+          fill={i < Math.round(safeScore) ? 'currentColor' : 'none'}
           stroke="currentColor"
           strokeWidth="2"
-          className={i < Math.round(score) ? 'text-accent-500' : 'text-slate-600'}
+          className={i < Math.round(safeScore) ? 'text-accent-500' : 'text-slate-600'}
           aria-hidden="true"
         >
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
         </svg>
       ))}
-      <span className="ml-1 text-xs text-slate-400">({score.toFixed(1)})</span>
+      <span className="ml-1 text-xs text-slate-400">({safeScore.toFixed(1)})</span>
     </div>
   );
 }

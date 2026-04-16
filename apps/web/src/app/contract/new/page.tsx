@@ -16,7 +16,7 @@ const ROLES = ['Artisan', 'Middleman', 'Seller'];
 export default function NewContractPage() {
   const router = useRouter();
   const { address } = useAccount();
-  const { user, isAuthenticated, token } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);

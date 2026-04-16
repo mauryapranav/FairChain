@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import React, { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  override componentDidCatch(error: Error, _info: ErrorInfo) {
+  override componentDidCatch(error: Error) {
     console.error(`[ErrorBoundary:${this.props.section ?? 'unknown'}]`, error);
   }
 

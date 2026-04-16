@@ -1,0 +1,16 @@
+{
+  "name": "fairchain",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:web\"",
+    "dev:web": "pnpm --filter @fairchain/web dev",
+    "dev:server": "pnpm --filter @fairchain/server dev",
+    "build": "pnpm --filter @fairchain/shared build && pnpm --filter @fairchain/server build && pnpm --filter @fairchain/web build",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5"
+  }
+}
