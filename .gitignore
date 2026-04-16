@@ -14,3 +14,7 @@ apps/server/.env
 
 packages/*/node_modules/
 packages/*/dist/
+
+# Reference design folder — not part of the deployed app
+fairchain-frontend-code/
+fairchain-frontend-code.zip
