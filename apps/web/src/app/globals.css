@@ -1,129 +1,186 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── CSS Custom Properties ─────────────────────────────────────────────── */
-:root {
-  --font-inter: 'Inter', system-ui, sans-serif;
-  --font-jetbrains: 'JetBrains Mono', monospace;
+/* FairChain — Paper & Ink design system */
 
-  --color-bg:       #0A0F1E;
-  --color-surface:  #111827;
-  --color-border:   rgba(255, 255, 255, 0.07);
-  --color-accent:   #00E5A0;
-  --color-text:     #F1F5F9;
-  --color-muted:    #94A3B8;
+@layer base {
+  :root {
+    /* Paper & Ink palette */
+    --background:        42 33% 96%;    /* #f5f3ee paper */
+    --foreground:        0 0% 8%;       /* #141414 ink */
+
+    --paper:             42 33% 96%;
+    --paper-2:           38 24% 91%;   /* #e8e4dd */
+    --ink:               0 0% 5%;      /* #0d0d0d */
+    --ink-soft:          0 0% 18%;     /* #2d2d2d */
+
+    --card:              42 33% 96%;
+    --card-foreground:   0 0% 8%;
+
+    --popover:           42 33% 98%;
+    --popover-foreground:0 0% 8%;
+
+    --primary:           0 0% 5%;
+    --primary-foreground:42 33% 96%;
+
+    --secondary:         38 24% 91%;
+    --secondary-foreground: 0 0% 8%;
+
+    --muted:             38 24% 91%;
+    --muted-foreground:  0 0% 38%;
+
+    --accent-hsl:        38 24% 88%;
+    --accent-foreground: 0 0% 8%;
+
+    --destructive:       0 65% 45%;
+    --destructive-foreground: 42 33% 96%;
+
+    --success:           142 45% 32%;
+    --success-foreground:42 33% 96%;
+
+    --border:            38 18% 84%;
+    --input:             38 18% 84%;
+    --ring:              0 0% 8%;
+    --radius:            1rem;
+
+    /* FairChain brand green — kept for blockchain UI elements */
+    --color-accent:      #2C7A4E;       /* forest green, warmer than teal */
+    --color-accent-glow: rgba(44, 122, 78, 0.18);
+
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body:    'DM Sans', system-ui, sans-serif;
+
+    --shadow-soft:     0 1px 2px hsl(0 0% 0% / 0.04), 0 8px 24px hsl(0 0% 0% / 0.05);
+    --shadow-elevated: 0 2px 6px hsl(0 0% 0% / 0.06), 0 24px 60px hsl(0 0% 0% / 0.10);
+    --gradient-paper:  radial-gradient(1200px 600px at 20% 0%, hsl(38 30% 88% / 0.6), transparent 60%),
+                       radial-gradient(900px 500px at 100% 100%, hsl(38 25% 84% / 0.5), transparent 60%);
+  }
 }
 
-/* ── Base Reset ─────────────────────────────────────────────────────────── */
+/* ── Base layer ──────────────────────────────────────────────────────────── */
 @layer base {
+  * { border-color: hsl(var(--border)); }
+
   html {
-    @apply antialiased scroll-smooth;
-    font-family: var(--font-inter);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-family: var(--font-body);
+    @apply scroll-smooth;
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-body);
+    background-image: var(--gradient-paper);
+    background-attachment: fixed;
     @apply min-h-screen;
   }
 
-  * {
-    border-color: var(--color-border);
+  h1, h2, h3, h4, h5 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 
   ::selection {
-    background-color: rgba(0, 229, 160, 0.25);
+    background: hsl(var(--ink));
+    color: hsl(var(--paper));
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  /* Scrollbar — subtle parchment tone */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.12);
+    background: hsl(38 18% 78%);
     border-radius: 3px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 229, 160, 0.4);
-  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--ink-soft)); }
 }
 
-/* ── Reusable Component Layer ───────────────────────────────────────────── */
+/* ── Component layer ─────────────────────────────────────────────────────── */
 @layer components {
-  /* Glass card surface */
+
+  /* Glass card — warm paper glass */
   .glass {
-    background: rgba(17, 24, 39, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--color-border);
-    @apply rounded-xl2 shadow-card;
+    background: hsl(42 33% 98% / 0.72);
+    backdrop-filter: saturate(140%) blur(14px);
+    -webkit-backdrop-filter: saturate(140%) blur(14px);
+    border: 1px solid hsl(38 18% 84% / 0.9);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-soft);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
   }
-
   .glass:hover {
-    @apply shadow-card-hover;
-    border-color: rgba(0, 229, 160, 0.2);
-    transition: all 0.25s ease;
+    box-shadow: var(--shadow-elevated);
+    border-color: hsl(38 18% 72%);
   }
 
-  /* Accent button */
+  /* Primary button — ink */
   .btn-primary {
     @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm;
-    background: linear-gradient(135deg, #00E5A0 0%, #00B87F 100%);
-    color: #0A0F1E;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-family: var(--font-display);
     transition: all 0.2s ease;
   }
   .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 0 20px rgba(0, 229, 160, 0.4);
+    box-shadow: 0 4px 16px hsl(0 0% 0% / 0.20);
   }
-  .btn-primary:active {
-    transform: translateY(0);
-  }
+  .btn-primary:active { transform: translateY(0); }
 
-  /* Secondary / ghost button */
+  /* Ghost button */
   .btn-ghost {
     @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm;
-    border: 1px solid var(--color-border);
-    color: var(--color-muted);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    background: transparent;
+    font-family: var(--font-display);
     transition: all 0.2s ease;
   }
   .btn-ghost:hover {
-    border-color: rgba(0, 229, 160, 0.4);
-    color: var(--color-accent);
-    background: rgba(0, 229, 160, 0.06);
+    border-color: hsl(var(--ink-soft));
+    color: hsl(var(--foreground));
+    background: hsl(38 24% 91% / 0.6);
   }
 
-  /* Navbar link */
+  /* Nav link */
   .nav-link {
-    @apply text-sm font-medium text-slate-400 transition-colors duration-200;
+    @apply text-sm font-medium transition-colors duration-200;
+    color: hsl(var(--ink-soft));
+    font-family: var(--font-display);
   }
-  .nav-link:hover {
-    color: var(--color-text);
-  }
-  .nav-link.active {
-    color: var(--color-accent);
-  }
+  .nav-link:hover { color: hsl(var(--ink)); }
+  .nav-link.active { color: var(--color-accent); font-weight: 600; }
 }
 
 /* ── Utility layer ───────────────────────────────────────────────────────── */
 @layer utilities {
+  /* Gradient text — earthy forest green */
   .text-gradient {
-    background: linear-gradient(135deg, #00E5A0 0%, #5EEAD4 60%, #a5f3fc 100%);
+    background: linear-gradient(135deg, #2C7A4E 0%, #4A9E6A 60%, #6BBD88 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .border-subtle {
-    border: 1px solid var(--color-border);
-  }
+  .font-display { font-family: var(--font-display); }
+  .font-body    { font-family: var(--font-body); }
+  .text-balance { text-wrap: balance; }
 
-  .section-pad {
-    @apply px-6 py-16 md:px-12 lg:px-24;
+  .border-subtle { border: 1px solid hsl(var(--border)); }
+  .section-pad   { @apply px-6 py-16 md:px-12 lg:px-24; }
+
+  .shadow-soft     { box-shadow: var(--shadow-soft); }
+  .shadow-elevated { box-shadow: var(--shadow-elevated); }
+
+  /* Paper grain overlay */
+  .grain::before {
+    content: "";
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
+    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   }
 }

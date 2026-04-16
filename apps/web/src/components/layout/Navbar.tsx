@@ -19,7 +19,7 @@ export function Navbar() {
   const pathname = usePathname();
 
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-white/5 bg-[#0A0F1E]/80 backdrop-blur-md">
+    <header className="fixed top-0 z-50 w-full border-b border-ink/10 bg-paper/80 backdrop-blur-md shadow-soft">
       <nav
         className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3"
         aria-label="Main navigation"
@@ -27,19 +27,19 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="group flex items-center gap-2" aria-label="FairChain home">
           <span
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#00E5A0]/30 bg-[#00E5A0]/15 transition-colors group-hover:bg-[#00E5A0]/25"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-accent-300 bg-accent-100 transition-colors group-hover:bg-accent-200"
             aria-hidden="true"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
               fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" className="text-[#00E5A0]">
+              strokeLinejoin="round" className="text-accent-600">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
           </span>
-          <span className="text-base font-bold tracking-tight">
+          <span className="text-base font-bold tracking-tight font-display">
             <span className="text-gradient">Fair</span>
-            <span className="text-white">Chain</span>
+            <span className="text-ink">Chain</span>
           </span>
         </Link>
 
@@ -51,7 +51,7 @@ export function Navbar() {
               <li key={href}>
                 <Link
                   href={href}
-                  className={cn('nav-link rounded-md px-3 py-2 text-sm transition-all', isActive && 'active bg-[#00E5A0]/10')}
+                  className={cn('nav-link rounded-md px-3 py-2 text-sm transition-all', isActive && 'active bg-accent-100 text-accent-600 font-semibold')}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   {label}

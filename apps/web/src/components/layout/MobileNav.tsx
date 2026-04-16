@@ -21,13 +21,13 @@ export function MobileNav() {
       {/* Hamburger button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/5 transition-colors"
+        className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-ink/5 transition-colors"
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
       >
-        <span className={`block w-5 h-0.5 bg-slate-300 transition-all duration-200 ${open ? 'rotate-45 translate-y-2' : ''}`} />
-        <span className={`block w-5 h-0.5 bg-slate-300 transition-all duration-200 ${open ? 'opacity-0' : ''}`} />
-        <span className={`block w-5 h-0.5 bg-slate-300 transition-all duration-200 ${open ? '-rotate-45 -translate-y-2' : ''}`} />
+        <span className={`block w-5 h-0.5 bg-ink-soft transition-all duration-200 ${open ? 'rotate-45 translate-y-2' : ''}`} />
+        <span className={`block w-5 h-0.5 bg-ink-soft transition-all duration-200 ${open ? 'opacity-0' : ''}`} />
+        <span className={`block w-5 h-0.5 bg-ink-soft transition-all duration-200 ${open ? '-rotate-45 -translate-y-2' : ''}`} />
       </button>
 
       {/* Backdrop */}
@@ -42,17 +42,17 @@ export function MobileNav() {
       {/* Drawer */}
       <div
         className={`md:hidden fixed top-0 left-0 bottom-0 z-50 w-72
-          bg-[#0D1424] border-r border-white/[0.07]
+          bg-paper border-r border-ink/10 shadow-elevated
           transition-transform duration-300 ease-out
           ${open ? 'translate-x-0' : '-translate-x-full'}`}
         aria-label="Mobile navigation"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.07]">
-          <span className="text-gradient font-bold text-lg">FairChain</span>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-ink/10">
+          <span className="text-gradient font-bold text-lg font-display">FairChain</span>
           <button
             onClick={() => setOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400"
+            className="p-1.5 rounded-lg hover:bg-ink/5 text-ink-soft"
             aria-label="Close menu"
           >
             ✕
@@ -66,11 +66,10 @@ export function MobileNav() {
               key={href}
               href={href}
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
-                transition-all duration-200
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
                 ${pathname === href
-                  ? 'bg-[--color-accent]/10 text-[--color-accent]'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                  ? 'bg-accent-100 text-accent-600 font-semibold'
+                  : 'text-ink-soft hover:text-ink hover:bg-ink/5'}`}
             >
               {label}
             </Link>
@@ -79,7 +78,7 @@ export function MobileNav() {
 
         {/* Footer */}
         <div className="absolute bottom-8 left-0 right-0 px-5 text-center">
-          <p className="text-xs text-slate-600">FairChain · Polygon Amoy</p>
+          <p className="text-xs text-ink/40">FairChain · Polygon Amoy</p>
         </div>
       </div>
     </>
