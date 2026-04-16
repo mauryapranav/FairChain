@@ -1,0 +1,84 @@
+version: '3.9'
+
+services:
+  # ── MongoDB ──────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: fairchain-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - fairchain
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Express API ───────────────────────────────────────────────────────
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: fairchain-server
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/fairchain
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRY: 7d
+      # Razorpay (leave mock if not set)
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_mock}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-mock}
+      # IPFS / Pinata (leave empty for mock)
+      PINATA_JWT: ${PINATA_JWT:-}
+      # Polygon Amoy (leave empty for mock mode)
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://rpc-amoy.polygon.technology}
+      ESCROW_CONTRACT_ADDRESS: ${ESCROW_CONTRACT_ADDRESS:-}
+      PROOF_REGISTRY_ADDRESS: ${PROOF_REGISTRY_ADDRESS:-}
+      DEPLOY_WALLET_PRIVATE_KEY: ${DEPLOY_WALLET_PRIVATE_KEY:-}
+      ADMIN_WALLET: ${ADMIN_WALLET:-}
+    ports:
+      - "4000:4000"
+    networks:
+      - fairchain
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js Frontend ──────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://server:4000}
+    container_name: fairchain-web
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_URL: http://server:4000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://server:4000}
+    ports:
+      - "3000:3000"
+    networks:
+      - fairchain
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  fairchain:
+    driver: bridge

@@ -1,0 +1,39 @@
+{
+  "name": "FairChain",
+  "short_name": "FairChain",
+  "description": "Transparent, blockchain-anchored supply chain contracts with fair payment distribution.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0F1E",
+  "theme_color": "#00E5A0",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["finance", "productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Explore Contracts",
+      "url": "/explore",
+      "description": "Browse supply chain contracts"
+    },
+    {
+      "name": "Verify Product",
+      "url": "/verify/demo",
+      "description": "Verify a product's supply chain"
+    }
+  ]
+}

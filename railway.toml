@@ -1,0 +1,61 @@
+# Railway deployment configuration
+# Deploy both services from the same monorepo
+
+[build]
+builder = "dockerfile"
+
+[[services]]
+name = "fairchain-server"
+source = "apps/server"
+
+[services.build]
+dockerfilePath = "apps/server/Dockerfile"
+buildContext = "."
+
+[services.deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+[[services.variables]]
+name = "PORT"
+value = "4000"
+[[services.variables]]
+name = "NODE_ENV"
+value = "production"
+[[services.variables]]
+name = "MONGODB_URI"
+description = "MongoDB connection string (use Railway MongoDB plugin or Atlas free tier)"
+[[services.variables]]
+name = "JWT_SECRET"
+description = "Random 64-char string — generate at https://generate-secret.vercel.app/64"
+[[services.variables]]
+name = "CORS_ORIGIN"
+description = "Your deployed frontend URL, e.g. https://fairchain-web.up.railway.app"
+
+# ── Second service: Next.js web ───────────────────────────────────────
+
+[[services]]
+name = "fairchain-web"
+source = "apps/web"
+
+[services.build]
+dockerfilePath = "apps/web/Dockerfile"
+buildContext = "."
+
+[services.deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+[[services.variables]]
+name = "NODE_ENV"
+value = "production"
+[[services.variables]]
+name = "API_URL"
+description = "Internal URL of the server service, e.g. https://fairchain-server.up.railway.app"
+[[services.variables]]
+name = "NEXT_PUBLIC_API_URL"
+description = "Same as API_URL — public browser-facing API endpoint"

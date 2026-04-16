@@ -1,0 +1,5 @@
+// Barrel exports for UI components
+export { Card } from './Card';
+export { Badge } from './Badge';
+export { PageHeader } from './PageHeader';
+export { Spinner } from './Spinner';
