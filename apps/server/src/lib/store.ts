@@ -32,6 +32,7 @@ export interface StoredContract {
   proofTxHash?: string;
   txHash?: string;
   lockedAt?: Date;
+  acceptedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

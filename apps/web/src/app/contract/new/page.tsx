@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +8,7 @@ import { toast } from '@/lib/toast';
 
 interface Participant { walletAddress: string; role: string; paymentSplit: number; userId: string }
 interface Milestone  { index: number; description: string; amount: number }
+interface NetworkUser { id: string; name: string; walletAddress: string; role: string }
 
 const API = process.env['NEXT_PUBLIC_API_URL'] ?? '';
 const CATEGORIES = ['Textiles', 'Jewellery', 'Handicrafts', 'Spices', 'Pottery', 'Woodwork', 'Leather', 'Electronics', 'Agriculture', 'Other'];
@@ -20,6 +21,14 @@ export default function NewContractPage() {
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [networkUsers, setNetworkUsers] = useState<NetworkUser[]>([]);
+
+  useEffect(() => {
+    fetch(`${API}/api/users`)
+      .then(r => r.json())
+      .then(d => setNetworkUsers(d.data ?? []))
+      .catch(() => {});
+  }, []);
 
   // Step 1 — Product
   const [productName, setProductName] = useState('');
@@ -217,34 +226,65 @@ export default function NewContractPage() {
             <p className="text-xs text-slate-500">Add all parties in the supply chain. Splits must total 100%.</p>
 
             <div className="space-y-3">
-              {participants.map((p, i) => (
-                <div key={i} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-400">Participant {i + 1}</span>
-                    {participants.length > 1 && (
-                      <button onClick={() => removeParticipant(i)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+              {participants.map((p, i) => {
+                const isMe = p.walletAddress.toLowerCase() === (address?.toLowerCase() || user?.walletAddress?.toLowerCase());
+                return (
+                  <div key={i} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-400">
+                        Participant {i + 1} {isMe && <span className="text-[#00E5A0] ml-1">(You)</span>}
+                      </span>
+                      {participants.length > 1 && (
+                        <button onClick={() => removeParticipant(i)} className="text-xs text-red-400 hover:text-red-300">Remove</button>
+                      )}
+                    </div>
+
+                    {isMe ? (
+                      <div className="w-full bg-white/[0.02] border border-white/[0.04] rounded-lg px-3 py-2 text-xs text-slate-500 font-mono">
+                        {p.walletAddress}
+                      </div>
+                    ) : (
+                      <select
+                        value={p.walletAddress}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateParticipant(i, 'walletAddress', val);
+                          const matchedUser = networkUsers.find(u => u.walletAddress === val);
+                          if (matchedUser) {
+                            updateParticipant(i, 'userId', matchedUser.id);
+                            // Auto-set role based on network profile
+                            updateParticipant(i, 'role', matchedUser.role);
+                          }
+                        }}
+                        className="w-full bg-[#111827] border border-[#00E5A0]/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#00E5A0]/50"
+                      >
+                        <option value="">Select Network Participant…</option>
+                        {networkUsers
+                          .filter(u => u.walletAddress.toLowerCase() !== address?.toLowerCase())
+                          .map(u => (
+                            <option key={u.id} value={u.walletAddress}>
+                              {u.name} — {u.role}
+                            </option>
+                          ))}
+                      </select>
                     )}
-                  </div>
-                  <input
-                    value={p.walletAddress}
-                    onChange={e => updateParticipant(i, 'walletAddress', e.target.value)}
-                    placeholder="0x… wallet address"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 font-mono focus:outline-none focus:border-[#00E5A0]/30"
-                  />
-                  <div className="flex gap-2">
-                    <select value={p.role} onChange={e => updateParticipant(i, 'role', e.target.value)}
-                      className="flex-1 bg-[#111827] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white focus:outline-none">
-                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <div className="flex items-center gap-1 border border-white/[0.08] rounded-lg px-3 py-2 bg-white/[0.04]">
-                      <input type="number" value={p.paymentSplit} min={0} max={100}
-                        onChange={e => updateParticipant(i, 'paymentSplit', parseFloat(e.target.value) || 0)}
-                        className="w-12 bg-transparent text-xs text-white focus:outline-none" />
-                      <span className="text-xs text-slate-500">%</span>
+
+                    <div className="flex gap-2 mt-2">
+                      <select value={p.role} onChange={e => updateParticipant(i, 'role', e.target.value)}
+                        disabled={!isMe && p.walletAddress !== ''}
+                        className={`flex-1 bg-[#111827] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white focus:outline-none ${!isMe && p.walletAddress !== '' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <div className="flex items-center gap-1 border border-white/[0.08] rounded-lg px-3 py-2 bg-white/[0.04]">
+                        <input type="number" value={p.paymentSplit} min={0} max={100}
+                          onChange={e => updateParticipant(i, 'paymentSplit', parseFloat(e.target.value) || 0)}
+                          className="w-12 bg-transparent text-xs text-white focus:outline-none" />
+                        <span className="text-xs text-slate-500">%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex items-center justify-between">

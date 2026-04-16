@@ -41,7 +41,7 @@ export const releaseMilestone = async (req: Request, res: Response): Promise<voi
   if (milestone.releasedAt) { res.status(409).json({ error: 'Already released' }); return; }
 
   if (signature) {
-    const recovered = ethers.utils.verifyMessage(RELEASE_MSG(contractId, idx), signature);
+    const recovered = ethers.verifyMessage(RELEASE_MSG(contractId, idx), signature);
     const contract  = await ContractModel.findOne({ contractId });
     if (recovered.toLowerCase() !== contract?.createdBy?.toLowerCase() &&
         !contract?.participants.some(p => p.walletAddress === recovered.toLowerCase())) {

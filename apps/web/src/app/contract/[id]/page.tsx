@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ import { DisputePanel }  from '@/components/contract/DisputePanel';
 import { ProofSection }  from '@/components/contract/ProofSection';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { toast }         from '@/lib/toast';
+import { getSocket }     from '@/lib/socket';
 
 interface ContractParticipant {
   walletAddress: string;
@@ -37,15 +38,18 @@ interface ContractData {
   proofTxHash?: string;
   createdBy: string;
   createdAt: string;
+  acceptedAt?: string;
   lockedAt?: string;
 }
 
 const STATUS_BADGE: Record<string, string> = {
   draft:     'text-slate-400  bg-slate-500/10   border-slate-500/20',
   pending:   'text-amber-300  bg-amber-500/10   border-amber-500/20',
+  accepted:  'text-indigo-300 bg-indigo-500/10  border-indigo-500/20',
+  rejected:  'text-red-400    bg-red-500/10     border-red-500/20',
   locked:    'text-[#00E5A0] bg-[#00E5A0]/10   border-[#00E5A0]/20',
   completed: 'text-sky-300    bg-sky-500/10     border-sky-500/20',
-  disputed:  'text-red-300    bg-red-500/10     border-red-500/20',
+  disputed:  'text-orange-400 bg-orange-500/10  border-orange-500/20',
 };
 
 const API = process.env['NEXT_PUBLIC_API_URL'] ?? '';
@@ -61,6 +65,7 @@ export default function ContractDetailPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [locking, setLocking]   = useState(false);
   const [unread, setUnread]     = useState(0);
+  const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +79,37 @@ export default function ContractDetailPage() {
   }, [id, router]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // ── Real-time contract status updates via socket ───────────────────────────
+  const { token } = useAuth();
+  useEffect(() => {
+    if (!token || !id) return;
+    const socket = getSocket(token);
+    socketRef.current = socket;
+    socket.emit('join_room', id);
+
+    // Artisan accepted → creator's Lock button appears without refresh
+    socket.on('contract_accepted', (data: { contractId: string; status: string }) => {
+      if (data.contractId === id) {
+        toast.success('Contract accepted by participant!');
+        void load();
+      }
+    });
+
+    // Contract locked → proof section populates
+    socket.on('contract_locked', (data: { contractId: string }) => {
+      if (data.contractId === id) {
+        toast.success('Contract locked on-chain!');
+        void load();
+      }
+    });
+
+    return () => {
+      socket.emit('leave_room', id);
+      socket.off('contract_accepted');
+      socket.off('contract_locked');
+    };
+  }, [token, id, load]);
 
   const isParticipant = contract?.participants.some(
     p => p.walletAddress.toLowerCase() === (address ?? '').toLowerCase()
@@ -96,6 +132,26 @@ export default function ContractDetailPage() {
       }
     } catch { toast.error('Network error'); }
     finally { setLocking(false); }
+  };
+
+  const acceptContract = async () => {
+    try {
+      const res = await fetch(`${API}/api/contracts/${contract?.contractId}/accept`, {
+        method: 'PATCH', credentials: 'include',
+      });
+      if (res.ok) { toast.success('Contract accepted!'); void load(); }
+      else { const err = await res.json() as { error: string }; toast.error(err.error ?? 'Accept failed'); }
+    } catch { toast.error('Network error'); }
+  };
+
+  const rejectContract = async () => {
+    try {
+      const res = await fetch(`${API}/api/contracts/${contract?.contractId}/reject`, {
+        method: 'PATCH', credentials: 'include',
+      });
+      if (res.ok) { toast.success('Contract rejected!'); void load(); }
+      else { const err = await res.json() as { error: string }; toast.error(err.error ?? 'Reject failed'); }
+    } catch { toast.error('Network error'); }
   };
 
   /* ── Loading ─────────────────────────────────────────────────────── */
@@ -157,8 +213,13 @@ export default function ContractDetailPage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Lock button — creator + pending */}
+              {/* Creator: Pending vs Accepted */}
               {isCreator && contract.status === 'pending' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-400">
+                  ⏳ Waiting for Acceptance
+                </span>
+              )}
+              {isCreator && contract.status === 'accepted' && (
                 <button
                   onClick={lockContract}
                   disabled={locking}
@@ -168,6 +229,18 @@ export default function ContractDetailPage() {
                 >
                   {locking ? '⏳ Locking…' : '🔒 Lock Contract'}
                 </button>
+              )}
+
+              {/* Participant: Pending (Needs Acceptance) */}
+              {isParticipant && !isCreator && contract.status === 'pending' && (
+                <>
+                  <button onClick={rejectContract} className="btn-ghost text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                    ❌ Decline
+                  </button>
+                  <button onClick={acceptContract} className="btn-primary text-sm bg-[#00E5A0] text-[#0A0F1E] hover:bg-[#00E5A0]/80">
+                    ✅ Accept Contract
+                  </button>
+                </>
               )}
 
               {/* Chat toggle */}
@@ -188,9 +261,11 @@ export default function ContractDetailPage() {
               )}
 
               {/* Verify link */}
-              <a href={`/verify/${contract.contractId}`} className="btn-ghost text-sm" aria-label="View public verification page">
-                ⊡ Verify
-              </a>
+              {contract.status === 'locked' || contract.status === 'completed' || contract.status === 'disputed' ? (
+                <a href={`/verify/${contract.contractId}`} className="btn-ghost text-sm" aria-label="View public verification page">
+                  ⊡ Verify
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -252,6 +327,14 @@ export default function ContractDetailPage() {
                 </div>
               </ErrorBoundary>
 
+              {/* Status Timeline */}
+              <StatusTimeline
+                status={contract.status}
+                createdAt={contract.createdAt}
+                acceptedAt={contract.acceptedAt}
+                lockedAt={contract.lockedAt}
+              />
+
               {/* Blockchain proof */}
               <ErrorBoundary section="proof">
                 <ProofSection
@@ -311,5 +394,88 @@ export default function ContractDetailPage() {
         />
       )}
     </>
+  );
+}
+
+// ── Status Timeline ────────────────────────────────────────────────────────────
+
+const TIMELINE_STEPS = [
+  { key: 'created',   label: 'Created',   icon: '📝' },
+  { key: 'accepted',  label: 'Accepted',  icon: '✅' },
+  { key: 'locked',    label: 'Locked',    icon: '🔒' },
+  { key: 'completed', label: 'Completed', icon: '🏁' },
+] as const;
+
+const STATUS_ORDER: Record<string, number> = {
+  pending: 0, draft: 0,
+  accepted: 1,
+  locked: 2, disputed: 2,
+  completed: 3,
+};
+
+function StatusTimeline({
+  status, createdAt, acceptedAt, lockedAt,
+}: {
+  status: string;
+  createdAt?: string;
+  acceptedAt?: string;
+  lockedAt?: string;
+}) {
+  const currentStep = STATUS_ORDER[status] ?? 0;
+  const timestamps: Record<string, string | undefined> = {
+    created:   createdAt,
+    accepted:  acceptedAt,
+    locked:    lockedAt,
+    completed: status === 'completed' ? lockedAt : undefined,
+  };
+
+  return (
+    <div className="glass p-5">
+      <p className="text-xs text-slate-500 uppercase tracking-wider mb-4">Contract Lifecycle</p>
+      <div className="flex items-start gap-0">
+        {TIMELINE_STEPS.map((step, i) => {
+          const done    = i <= currentStep;
+          const current = i === currentStep;
+          const ts      = timestamps[step.key];
+          return (
+            <div key={step.key} className="flex-1 flex flex-col items-center gap-1">
+              {/* Connector before */}
+              <div className="flex items-center w-full">
+                {i > 0 && (
+                  <div className={`h-px flex-1 transition-colors duration-500 ${
+                    i <= currentStep ? 'bg-[#00E5A0]/50' : 'bg-white/[0.06]'
+                  }`} />
+                )}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 transition-all duration-300 ${
+                  current
+                    ? 'bg-[#00E5A0]/20 border-2 border-[#00E5A0] ring-4 ring-[#00E5A0]/10'
+                    : done
+                      ? 'bg-[#00E5A0]/10 border border-[#00E5A0]/40'
+                      : 'bg-white/[0.04] border border-white/[0.08]'
+                }`}>
+                  <span className={done ? '' : 'opacity-30'}>{step.icon}</span>
+                </div>
+                {i < TIMELINE_STEPS.length - 1 && (
+                  <div className={`h-px flex-1 transition-colors duration-500 ${
+                    i < currentStep ? 'bg-[#00E5A0]/50' : 'bg-white/[0.06]'
+                  }`} />
+                )}
+              </div>
+              {/* Label + timestamp */}
+              <p className={`text-[10px] font-medium text-center mt-1 ${
+                current ? 'text-[#00E5A0]' : done ? 'text-slate-400' : 'text-slate-600'
+              }`}>
+                {step.label}
+              </p>
+              {ts && (
+                <p className="text-[9px] text-slate-600 text-center">
+                  {new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
